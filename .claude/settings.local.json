@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m json.tool)",
+      "Bash(gcloud services:*)",
+      "Bash(gh auth:*)",
+      "Bash(gh secret:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

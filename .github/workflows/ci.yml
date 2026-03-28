@@ -17,7 +17,7 @@ jobs:
   # ─────────────────────────────────────────
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, docker, linux]
 
     steps:
       - name: Checkout code
@@ -42,37 +42,42 @@ jobs:
         run: isort --check-only --profile=black .
 
   # ─────────────────────────────────────────
-  # JOB 2: Checkmarx SAST Scan
+  # JOB 2: Semgrep SAST Scan
   # ─────────────────────────────────────────
-  checkmarx:
-    name: Checkmarx SAST Scan
-    runs-on: ubuntu-latest
+  semgrep:
+    name: Semgrep SAST Scan
+    runs-on: [self-hosted, docker, linux]
     needs: lint
+
+    permissions:
+      contents: read
+      security-events: write   # required to upload SARIF to GitHub Security tab
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Checkmarx CxOne SAST Scan
-        uses: checkmarx/ast-github-action@main
+      - name: Run Semgrep SAST scan
+        uses: semgrep/semgrep-action@v1
         with:
-          base_uri: ${{ secrets.CX_BASE_URI }}
-          cx_client_id: ${{ secrets.CX_CLIENT_ID }}
-          cx_client_secret: ${{ secrets.CX_CLIENT_SECRET }}
-          cx_tenant: ${{ secrets.CX_TENANT }}
-          project_name: ${{ github.repository }}
-          branch: ${{ github.ref_name }}
-          additional_params: |
-            --scan-types sast
-            --sast-preset-name "Checkmarx Default"
-            --threshold "sast-high=0;sast-medium=0"
+          config: >-
+            p/python
+            p/owasp-top-ten
+            p/secrets
+          generateSarif: "1"
+
+      - name: Upload Semgrep SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
 
   # ─────────────────────────────────────────
   # JOB 3: Build Docker Image
   # ─────────────────────────────────────────
   docker-build:
     name: Build Docker Image
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, docker, linux]
     needs: lint
 
     steps:
@@ -97,7 +102,7 @@ jobs:
   # ─────────────────────────────────────────
   docker-scan:
     name: Docker Image Scan (Trivy)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, docker, linux]
     needs: docker-build
 
     steps:
@@ -137,8 +142,8 @@ jobs:
   # ─────────────────────────────────────────
   push-to-gar:
     name: Push to GCP Artifact Registry
-    runs-on: ubuntu-latest
-    needs: [docker-scan, checkmarx]
+    runs-on: [self-hosted, docker, linux]
+    needs: [docker-scan, semgrep]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     permissions:
