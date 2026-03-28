@@ -102,6 +102,9 @@ jobs:
     name: Docker Image Scan (Trivy)
     runs-on: [self-hosted, docker, linux]
     needs: docker-build
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - name: Download image artifact
@@ -130,7 +133,7 @@ jobs:
           output: trivy-results.sarif
 
       - name: Upload Trivy SARIF report
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: trivy-results.sarif
